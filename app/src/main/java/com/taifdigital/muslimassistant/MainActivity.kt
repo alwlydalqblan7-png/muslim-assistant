@@ -18,6 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val emerald = Color(0xFF075C4B)
+private val gold = Color(0xFFD4AF37)
+private val cream = Color(0xFFF8F4E9)
+private val deepGreen = Color(0xFF102D29)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,23 +41,23 @@ fun MuslimAssistant() {
     var voice by remember { mutableStateOf(prefs.getString("voice", "makkah") ?: "makkah") }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme(colorScheme = lightColorScheme(primary = emerald)) {
+        MaterialTheme(colorScheme = lightColorScheme(primary = emerald, secondary = gold, background = cream, surface = Color.White)) {
             Scaffold(
                 topBar = {
                     Surface(color = emerald) {
                         Column(Modifier.fillMaxWidth().padding(22.dp)) {
-                            Text("☪ مساعد المسلم", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-                            Text("TAIF DIGITAL", color = Color(0xFFF1D28A), fontSize = 12.sp)
+                            Text("☪ مساعد المسلم", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                            Text("TAIF DIGITAL  •  رفيق المسلم اليومي", color = gold, fontSize = 12.sp)
                         }
                     }
                 },
                 bottomBar = {
-                    NavigationBar {
+                    NavigationBar(containerColor = cream) {
                         listOf("الرئيسية", "المؤذن", "الأذكار", "القرآن", "الإعدادات").forEach { label ->
                             NavigationBarItem(
                                 selected = page == label,
                                 onClick = { page = label },
-                                icon = { Text("●") },
+                                icon = { Text(when (label) { "الرئيسية" -> "⌂"; "المؤذن" -> "◷"; "الأذكار" -> "♡"; "القرآن" -> "▤"; else -> "⚙" }, fontSize = 22.sp, color = if (page == label) emerald else deepGreen) },
                                 label = { Text(label) }
                             )
                         }
@@ -67,18 +70,25 @@ fun MuslimAssistant() {
                 ) {
                     when (page) {
                         "الرئيسية" -> {
-                            Text("السلام عليكم ورحمة الله", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                            Text("يومك عامر بذكر الله")
-                            ElevatedCard {
-                                Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                                    Text("الصلاة القادمة", color = emerald, fontWeight = FontWeight.Bold)
-                                    Text("تظهر المواقيت بعد إعداد الموقع وطريقة الحساب")
+                            Text("السلام عليكم ورحمة الله", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = emerald)
+                            Text("يومك عامر بذكر الله", color = deepGreen)
+                            Card(colors = CardDefaults.cardColors(containerColor = deepGreen)) {
+                                Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("☪  الصلاة القادمة", color = gold, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                    Text("مواقيت الصلاة", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                    Text("تظهر بعد تحديد المدينة وطريقة الحساب", color = cream)
+                                    HorizontalDivider(color = gold)
+                                    Text("الفجر   •   الظهر   •   العصر   •   المغرب   •   العشاء", color = Color.White, fontSize = 12.sp)
                                 }
                             }
-                            listOf("المؤذن", "الأذكار", "القرآن", "الإعدادات").forEach { item ->
-                                Button(onClick = { page = item }, modifier = Modifier.fillMaxWidth()) { Text(item) }
+                            listOf("المؤذن" to "◷  المؤذن الذكي", "الأذكار" to "♡  الأذكار اليومية", "القرآن" to "▤  القرآن الكريم", "الإعدادات" to "⚙  الإعدادات").forEach { (destination, label) ->
+                                ElevatedCard(onClick = { page = destination }, modifier = Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = Color.White)) {
+                                    Text(label, modifier = Modifier.padding(20.dp), color = emerald, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
-                            Text("سبحان الله وبحمده، سبحان الله العظيم")
+                            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE5EEE7))) {
+                                Text("✦  سبحان الله وبحمده، سبحان الله العظيم", modifier = Modifier.fillMaxWidth().padding(18.dp), color = emerald)
+                            }
                         }
                         "المؤذن" -> {
                             Text("المؤذن الذكي", fontSize = 23.sp, fontWeight = FontWeight.Bold)
