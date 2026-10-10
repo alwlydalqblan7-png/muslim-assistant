@@ -1,6 +1,11 @@
 package com.taifdigital.muslimassistant
 
 import android.os.Bundle
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -40,6 +45,17 @@ fun MuslimAssistant() {
     var quiet by remember { mutableStateOf(prefs.getBoolean("quiet", true)) }
     var voice by remember { mutableStateOf(prefs.getString("voice", "makkah") ?: "makkah") }
 
+    var cityName by remember { mutableStateOf(prefs.getString("prayer_city", "دمشق") ?: "دمشق") }
+    var method by remember { mutableStateOf(prefs.getString("prayer_method", "MWL") ?: "MWL") }
+    val city = PrayerTimes.cities.firstOrNull { it.name == cityName } ?: PrayerTimes.cities.first()
+    val today = ZonedDateTime.now(java.time.ZoneId.of(city.zone))
+    val angles = if (method == "EGYPT") 19.5 to 17.5 else if (method == "MAKKAH") 18.5 to 18.5 else 18.0 to 17.0
+    val prayers = remember(cityName, method, today.toLocalDate()) {
+        PrayerTimes.calculate(today.toLocalDate(), city, angles.first, angles.second)
+    }
+    val upcoming = prayers.firstOrNull { it.time.isAfter(today.toLocalTime()) }
+    val displayPrayer = upcoming ?: prayers.firstOrNull()
+    val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         MaterialTheme(colorScheme = lightColorScheme(primary = emerald, secondary = gold, background = cream, surface = Color.White)) {
             Scaffold(
@@ -75,8 +91,12 @@ fun MuslimAssistant() {
                             Card(colors = CardDefaults.cardColors(containerColor = deepGreen)) {
                                 Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Text("☪  الصلاة القادمة", color = gold, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                                    Text("مواقيت الصلاة", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                                    Text("تظهر بعد تحديد المدينة وطريقة الحساب", color = cream)
+                                    Text(if (upcoming != null) "القادمة: ${upcoming.name}" else "الصلاة القادمة غدًا: الفجر", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                    Text("المدينة: ${city.name} — توقيت تقريبي", color = cream)
+                                    if (prayers.isEmpty()) Text("تعذّر حساب المواقيت لهذه المدينة والتاريخ", color = cream)
+                                    prayers.forEach { prayer ->
+                                        Text("${prayer.name}: ${prayer.time.format(timeFormat)}", color = Color.White)
+                                    }
                                     HorizontalDivider(color = gold)
                                     Text("الفجر   •   الظهر   •   العصر   •   المغرب   •   العشاء", color = Color.White, fontSize = 12.sp)
                                 }
@@ -127,7 +147,27 @@ fun MuslimAssistant() {
                         }
                         else -> {
                             Text("الإعدادات", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                            Text("المدينة وطريقة حساب الصلاة، الأذونات، ساعات النوم، تنزيل الأصوات: ستضاف في المراحل القادمة.")
+                            Text("مدينة مواقيت الصلاة", fontWeight = FontWeight.Bold)
+                            PrayerTimes.cities.forEach { item ->
+                                Row {
+                                    RadioButton(selected = cityName == item.name, onClick = {
+                                        cityName = item.name
+                                        prefs.edit().putString("prayer_city", item.name).apply()
+                                    })
+                                    Text(item.name, modifier = Modifier.padding(top = 12.dp))
+                                }
+                            }
+                            Text("طريقة حساب الفجر والعشاء", fontWeight = FontWeight.Bold)
+                            listOf("MWL" to "رابطة العالم الإسلامي (18° / 17°)", "EGYPT" to "الهيئة المصرية (19.5° / 17.5°)", "MAKKAH" to "زاويتان تجريبيتان (18.5° / 18.5°)").forEach { (id, title) ->
+                                Row {
+                                    RadioButton(selected = method == id, onClick = {
+                                        method = id
+                                        prefs.edit().putString("prayer_method", id).apply()
+                                    })
+                                    Text(title, modifier = Modifier.padding(top = 12.dp))
+                                }
+                            }
+                            Text("المواقيت تقديرية وتحتاج المقارنة بتقويم مسجدك المحلي. الأذان والتنبيهات لم تُفعّل بعد.", color = Color.Gray)
                             Text("الإعدادات الحالية محفوظة محليًا على هذا الجهاز.")
                         }
                     }
