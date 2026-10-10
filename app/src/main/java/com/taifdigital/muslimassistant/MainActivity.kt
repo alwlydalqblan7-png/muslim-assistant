@@ -151,7 +151,7 @@ fun MuslimAssistant() {
                         }
                         "المؤذن" -> {
                             Text("المؤذن الذكي", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                            SettingSwitch("الأذان الكامل (إعداد مبدئي)", adhan) {
+                            SettingSwitch("تفضيل الأذان الصوتي (غير مفعّل بعد)", adhan) {
                                 adhan = it; prefs.edit().putBoolean("adhan", it).apply()
                             }
                             SettingSwitch("تنبيهات الصلاة (قد تتأخر بسبب توفير البطارية)", prayerAlerts) { enabled ->
@@ -166,7 +166,7 @@ fun MuslimAssistant() {
                             }
                             Text("التنبيهات إشعارات فقط حاليًا، وليست أذانًا صوتيًا كاملًا.", color = Color.Gray)
                             OutlinedButton(onClick = { PrayerAlerts.notifyPrayer(context) }) { Text("تجربة إشعار الصلاة الآن") }
-                            Text("صوت المؤذن الافتراضي")
+                            Text("اختيار صوت المؤذن (محفوظ للتحديث الصوتي القادم)")
                             listOf("makkah" to "مؤذن الحرم المكي", "madinah" to "مؤذن المسجد النبوي", "other" to "صوت آخر").forEach { (id, label) ->
                                 Row {
                                     RadioButton(selected = voice == id, onClick = {
@@ -176,7 +176,7 @@ fun MuslimAssistant() {
                                 }
                             }
                             Text("الفجر • الظهر • العصر • المغرب • العشاء")
-                            Text("الأذان والتنبيهات الفعلية ستنفذ في المرحلة الثانية.", color = Color.Gray)
+                            Text("تنبيهات الصلاة إشعارات محلية تجريبية. الأذان الصوتي الكامل غير متاح بعد.", color = Color.Gray)
                         }
                         "الأذكار" -> {
                             Text("الأذكار اليومية", fontSize = 23.sp, fontWeight = FontWeight.Bold)
@@ -226,7 +226,7 @@ fun MuslimAssistant() {
                                     Text(title, modifier = Modifier.padding(top = 12.dp))
                                 }
                             }
-                            Text("المواقيت تقديرية وتحتاج المقارنة بتقويم مسجدك المحلي. الأذان والتنبيهات لم تُفعّل بعد.", color = Color.Gray)
+                            Text("المواقيت تقديرية وتحتاج المقارنة بتقويم مسجدك المحلي. تنبيهات الصلاة والأذكار متاحة بصورة تجريبية عند تفعيلها؛ الأذان الصوتي لم يُفعّل بعد.", color = Color.Gray)
                             Text("الإعدادات الحالية محفوظة محليًا على هذا الجهاز.")
                         }
                     }
