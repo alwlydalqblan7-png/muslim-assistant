@@ -45,15 +45,24 @@ fun MuslimAssistant() {
     var page by remember { mutableStateOf("الرئيسية") }
     var adhan by remember { mutableStateOf(prefs.getBoolean("adhan", true)) }
     var prayerAlerts by remember { mutableStateOf(prefs.getBoolean("prayer_alerts", false)) }
+    var dhikr by remember { mutableStateOf(prefs.getBoolean("dhikr", false)) }
+    var pendingPermission by remember { mutableStateOf("") }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
+        if (granted && pendingPermission == "prayer") {
             prayerAlerts = true
             prefs.edit().putBoolean("prayer_alerts", true).apply()
             PrayerAlerts.schedule(context)
+        } else if (granted && pendingPermission == "dhikr") {
+            dhikr = true
+            prefs.edit().putBoolean("dhikr", true).apply()
             DhikrAlerts.schedule(context)
         }
+        pendingPermission = ""
     }
-    var dhikr by remember { mutableStateOf(prefs.getBoolean("dhikr", true)) }
+    LaunchedEffect(Unit) {
+        PrayerAlerts.schedule(context)
+        DhikrAlerts.schedule(context)
+    }
     var sound by remember { mutableStateOf(prefs.getBoolean("sound", true)) }
     var quiet by remember { mutableStateOf(prefs.getBoolean("quiet", true)) }
     var voice by remember { mutableStateOf(prefs.getString("voice", "makkah") ?: "makkah") }
@@ -147,6 +156,7 @@ fun MuslimAssistant() {
                             }
                             SettingSwitch("تنبيهات الصلاة (قد تتأخر بسبب توفير البطارية)", prayerAlerts) { enabled ->
                                 if (enabled && Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    pendingPermission = "prayer"
                                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 } else {
                                     prayerAlerts = enabled
@@ -155,6 +165,7 @@ fun MuslimAssistant() {
                                 }
                             }
                             Text("التنبيهات إشعارات فقط حاليًا، وليست أذانًا صوتيًا كاملًا.", color = Color.Gray)
+                            OutlinedButton(onClick = { PrayerAlerts.notifyPrayer(context) }) { Text("تجربة إشعار الصلاة الآن") }
                             Text("صوت المؤذن الافتراضي")
                             listOf("makkah" to "مؤذن الحرم المكي", "madinah" to "مؤذن المسجد النبوي", "other" to "صوت آخر").forEach { (id, label) ->
                                 Row {
@@ -172,6 +183,7 @@ fun MuslimAssistant() {
                             DailyDhikrCards()
                             SettingSwitch("التذكير كل 60 دقيقة", dhikr) {
                                 if (it && Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    pendingPermission = "dhikr"
                                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 } else {
                                     dhikr = it; prefs.edit().putBoolean("dhikr", it).apply()
