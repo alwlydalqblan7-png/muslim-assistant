@@ -39,10 +39,11 @@ object PrayerAlerts {
         val zone = ZoneId.of(city.zone)
         val now = ZonedDateTime.now(zone)
         val angles = if (prefs.getString("prayer_method", "MWL") == "EGYPT") 19.5 to 17.5 else 18.0 to 17.0
+        val correctionMinutes = prefs.getInt("prayer_offset_minutes", 0).coerceIn(-30, 30)
         val next = (0L..2L).asSequence().flatMap { day ->
             val date = now.toLocalDate().plusDays(day)
             PrayerTimes.calculate(date, city, angles.first, angles.second).asSequence().map { prayer ->
-                prayer.name to date.atTime(prayer.time).atZone(zone).toInstant().toEpochMilli()
+                prayer.name to date.atTime(prayer.time).atZone(zone).toInstant().plusSeconds(correctionMinutes * 60L).toEpochMilli()
             }
         }.firstOrNull { it.second > System.currentTimeMillis() + 1000L } ?: return
         context.getSharedPreferences("prayer_schedule", 0).edit()
