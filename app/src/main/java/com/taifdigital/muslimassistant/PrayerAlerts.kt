@@ -12,7 +12,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.ZoneId
 
