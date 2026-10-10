@@ -26,4 +26,5 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.core:core:1.15.0")
 }
