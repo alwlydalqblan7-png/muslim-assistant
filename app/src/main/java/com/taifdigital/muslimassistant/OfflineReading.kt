@@ -3,6 +3,7 @@ package com.taifdigital.muslimassistant
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -51,7 +52,14 @@ fun OfflineQuranReading() {
 fun DailyDhikrCards() {
     val context = LocalContext.current
     val prefs = remember(context) { context.getSharedPreferences("dhikr_counter", 0) }
-    val today = java.time.LocalDate.now().toString()
+    var today by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000L)
+            val currentDate = java.time.LocalDate.now().toString()
+            if (currentDate != today) today = currentDate
+        }
+    }
     val entries = listOf(
         "أستغفر الله العظيم وأتوب إليه",
         "سبحان الله وبحمده، سبحان الله العظيم",
