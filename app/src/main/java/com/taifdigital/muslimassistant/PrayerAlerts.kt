@@ -45,7 +45,8 @@ object PrayerAlerts {
             PrayerTimes.calculate(date, city, angles.first, angles.second).asSequence().map { prayer ->
                 prayer.name to date.atTime(prayer.time).atZone(zone).toInstant().plusSeconds(correctionMinutes * 60L).toEpochMilli()
             }
-        }.firstOrNull { it.second > System.currentTimeMillis() + 1000L } ?: return
+        }.filter { it.second > System.currentTimeMillis() + 1000L }
+            .minByOrNull { it.second } ?: return
         context.getSharedPreferences("prayer_schedule", 0).edit()
             .putString(KEY_NAME, next.first).putLong(KEY_TIME, next.second).apply()
         // No exact-alarm permission: may arrive late under battery restrictions.
@@ -62,6 +63,7 @@ object PrayerAlerts {
             .setContentTitle("تجربة تنبيه الصلاة")
             .setContentText("هذا إشعار تجريبي للتأكد من السماح بالإشعارات، وليس موعد صلاة.")
             .setAutoCancel(true).build()
+        if (!manager.areNotificationsEnabled()) return false
         manager.notify(REQUEST + 1, notification)
         return true
     }
