@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -15,16 +16,34 @@ private val shortSurahs = listOf(
 
 @Composable
 fun OfflineQuranReading() {
-    var selected by remember { mutableStateOf(0) }
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("quran_reader", 0) }
+    var selected by remember { mutableIntStateOf(prefs.getInt("last_surah", 0).coerceIn(0, shortSurahs.lastIndex)) }
+    var fontSize by remember { mutableIntStateOf(prefs.getInt("font_size", 21).coerceIn(18, 32)) }
     Text("سور قصيرة للقراءة دون إنترنت — ليس المصحف كاملًا")
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         shortSurahs.forEachIndexed { index, entry ->
-            TextButton(onClick = { selected = index }) { Text(entry.first) }
+            TextButton(onClick = {
+                selected = index
+                prefs.edit().putInt("last_surah", index).apply()
+            }) { Text(entry.first) }
         }
     }
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Text(shortSurahs[selected].second, Modifier.padding(18.dp), fontSize = 21.sp, lineHeight = 39.sp)
+    Text("آخر سورة قرأتها: ${shortSurahs[selected].first}")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = {
+            fontSize = (fontSize - 2).coerceAtLeast(18)
+            prefs.edit().putInt("font_size", fontSize).apply()
+        }, enabled = fontSize > 18) { Text("تصغير الخط") }
+        OutlinedButton(onClick = {
+            fontSize = (fontSize + 2).coerceAtMost(32)
+            prefs.edit().putInt("font_size", fontSize).apply()
+        }, enabled = fontSize < 32) { Text("تكبير الخط") }
     }
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Text(shortSurahs[selected].second, Modifier.padding(18.dp), fontSize = fontSize.sp, lineHeight = (fontSize * 1.8f).sp)
+    }
+    Text("يحفظ التطبيق السورة الأخيرة وحجم الخط على هذا الجهاز فقط.")
     Text("المصحف الكامل والاستماع والتنزيل قيد التطوير.")
 }
 
