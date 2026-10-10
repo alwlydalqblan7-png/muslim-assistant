@@ -1,6 +1,10 @@
 package com.taifdigital.muslimassistant
 
 import android.os.Bundle
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import androidx.activity.ComponentActivity
@@ -40,6 +44,14 @@ fun MuslimAssistant() {
     val prefs = remember { context.getSharedPreferences("preferences", 0) }
     var page by remember { mutableStateOf("الرئيسية") }
     var adhan by remember { mutableStateOf(prefs.getBoolean("adhan", true)) }
+    var prayerAlerts by remember { mutableStateOf(prefs.getBoolean("prayer_alerts", false)) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            prayerAlerts = true
+            prefs.edit().putBoolean("prayer_alerts", true).apply()
+            PrayerAlerts.schedule(context)
+        }
+    }
     var dhikr by remember { mutableStateOf(prefs.getBoolean("dhikr", true)) }
     var sound by remember { mutableStateOf(prefs.getBoolean("sound", true)) }
     var quiet by remember { mutableStateOf(prefs.getBoolean("quiet", true)) }
@@ -132,6 +144,16 @@ fun MuslimAssistant() {
                             SettingSwitch("الأذان الكامل (إعداد مبدئي)", adhan) {
                                 adhan = it; prefs.edit().putBoolean("adhan", it).apply()
                             }
+                            SettingSwitch("تنبيهات الصلاة (قد تتأخر بسبب توفير البطارية)", prayerAlerts) { enabled ->
+                                if (enabled && Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    prayerAlerts = enabled
+                                    prefs.edit().putBoolean("prayer_alerts", enabled).apply()
+                                    PrayerAlerts.schedule(context)
+                                }
+                            }
+                            Text("التنبيهات إشعارات فقط حاليًا، وليست أذانًا صوتيًا كاملًا.", color = Color.Gray)
                             Text("صوت المؤذن الافتراضي")
                             listOf("makkah" to "مؤذن الحرم المكي", "madinah" to "مؤذن المسجد النبوي", "other" to "صوت آخر").forEach { (id, label) ->
                                 Row {
@@ -170,6 +192,7 @@ fun MuslimAssistant() {
                                     RadioButton(selected = cityName == item.name, onClick = {
                                         cityName = item.name
                                         prefs.edit().putString("prayer_city", item.name).apply()
+                                        PrayerAlerts.schedule(context)
                                     })
                                     Text(item.name, modifier = Modifier.padding(top = 12.dp))
                                 }
@@ -180,6 +203,7 @@ fun MuslimAssistant() {
                                     RadioButton(selected = method == id, onClick = {
                                         method = id
                                         prefs.edit().putString("prayer_method", id).apply()
+                                        PrayerAlerts.schedule(context)
                                     })
                                     Text(title, modifier = Modifier.padding(top = 12.dp))
                                 }
