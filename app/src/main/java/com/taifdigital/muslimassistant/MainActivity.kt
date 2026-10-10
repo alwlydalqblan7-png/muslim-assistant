@@ -68,7 +68,7 @@ fun MuslimAssistant() {
     var quiet by remember { mutableStateOf(prefs.getBoolean("quiet", true)) }
     var voice by remember { mutableStateOf(prefs.getString("voice", "makkah") ?: "makkah") }
 
-    var cityName by remember { mutableStateOf(prefs.getString("prayer_city", "دمشق") ?: "دمشق") }
+    var cityName by remember { mutableStateOf(prefs.getString("prayer_city", "مكة المكرمة") ?: "مكة المكرمة") }
     var method by remember { mutableStateOf(prefs.getString("prayer_method", "MWL") ?: "MWL") }
     var prayerOffset by remember { mutableIntStateOf(prefs.getInt("prayer_offset_minutes", 0).coerceIn(-30, 30)) }
     val city = PrayerTimes.cities.firstOrNull { it.name == cityName } ?: PrayerTimes.cities.first()
