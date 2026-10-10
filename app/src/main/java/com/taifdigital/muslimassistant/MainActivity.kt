@@ -13,6 +13,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
+import java.time.Duration
+import java.time.ZoneId
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -48,13 +51,29 @@ fun MuslimAssistant() {
     var cityName by remember { mutableStateOf(prefs.getString("prayer_city", "دمشق") ?: "دمشق") }
     var method by remember { mutableStateOf(prefs.getString("prayer_method", "MWL") ?: "MWL") }
     val city = PrayerTimes.cities.firstOrNull { it.name == cityName } ?: PrayerTimes.cities.first()
-    val today = ZonedDateTime.now(java.time.ZoneId.of(city.zone))
+    var clockTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000L)
+            clockTick++
+        }
+    }
+    val today = remember(cityName, clockTick) { ZonedDateTime.now(ZoneId.of(city.zone)) }
     val angles = if (method == "EGYPT") 19.5 to 17.5 else if (method == "MAKKAH") 18.5 to 18.5 else 18.0 to 17.0
     val prayers = remember(cityName, method, today.toLocalDate()) {
         PrayerTimes.calculate(today.toLocalDate(), city, angles.first, angles.second)
     }
     val upcoming = prayers.firstOrNull { it.time.isAfter(today.toLocalTime()) }
-    val displayPrayer = upcoming ?: prayers.firstOrNull()
+    val tomorrowFajr = remember(cityName, method, today.toLocalDate()) {
+        PrayerTimes.calculate(today.toLocalDate().plusDays(1), city, angles.first, angles.second).firstOrNull()
+    }
+    val nextPrayer = upcoming ?: tomorrowFajr
+    val nextInstant = nextPrayer?.let { prayer ->
+        val date = if (upcoming != null) today.toLocalDate() else today.toLocalDate().plusDays(1)
+        date.atTime(prayer.time).atZone(ZoneId.of(city.zone)).toInstant()
+    }
+    val remaining = nextInstant?.let { Duration.between(today.toInstant(), it).coerceAtLeast(Duration.ZERO) }
+    val countdown = remaining?.let { "%02d:%02d:%02d".format(it.toHours(), it.toMinutes() % 60, it.seconds % 60) } ?: "—"
     val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         MaterialTheme(colorScheme = lightColorScheme(primary = emerald, secondary = gold, background = cream, surface = Color.White)) {
@@ -91,7 +110,8 @@ fun MuslimAssistant() {
                             Card(colors = CardDefaults.cardColors(containerColor = deepGreen)) {
                                 Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Text("☪  الصلاة القادمة", color = gold, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                                    Text(if (upcoming != null) "القادمة: ${upcoming.name}" else "الصلاة القادمة غدًا: الفجر", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                    Text(if (nextPrayer != null) "القادمة: ${nextPrayer.name}" else "مواقيت غير متاحة", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                    Text("المتبقي: $countdown", color = gold, fontSize = 20.sp)
                                     Text("المدينة: ${city.name} — توقيت تقريبي", color = cream)
                                     if (prayers.isEmpty()) Text("تعذّر حساب المواقيت لهذه المدينة والتاريخ", color = cream)
                                     prayers.forEach { prayer ->
