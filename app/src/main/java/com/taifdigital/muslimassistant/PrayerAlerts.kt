@@ -51,6 +51,20 @@ object PrayerAlerts {
         // No exact-alarm permission: may arrive late under battery restrictions.
         alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.second, intent(context))
     }
+    /** A separate test notification that does not depend on a future scheduled prayer. */
+    fun testNotification(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, "تذكير الصلاة", NotificationManager.IMPORTANCE_DEFAULT))
+        val notification = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("تجربة تنبيه الصلاة")
+            .setContentText("هذا إشعار تجريبي للتأكد من السماح بالإشعارات، وليس موعد صلاة.")
+            .setAutoCancel(true).build()
+        manager.notify(REQUEST + 1, notification)
+        return true
+    }
     fun notifyPrayer(context: Context) {
         val prefs = context.getSharedPreferences("preferences", 0)
         if (!prefs.getBoolean("prayer_alerts", false)) return
