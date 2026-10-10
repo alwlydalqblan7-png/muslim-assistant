@@ -44,6 +44,7 @@ fun MuslimAssistant() {
     val prefs = remember { context.getSharedPreferences("preferences", 0) }
     var page by remember { mutableStateOf("الرئيسية") }
     var adhan by remember { mutableStateOf(prefs.getBoolean("adhan", true)) }
+    var testFeedback by remember { mutableStateOf("") }
     var prayerAlerts by remember { mutableStateOf(prefs.getBoolean("prayer_alerts", false)) }
     var dhikr by remember { mutableStateOf(prefs.getBoolean("dhikr", false)) }
     var pendingPermission by remember { mutableStateOf("") }
@@ -84,7 +85,7 @@ fun MuslimAssistant() {
         PrayerTimes.calculate(today.toLocalDate(), city, angles.first, angles.second).map { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
     }
     val upcoming = prayers.firstOrNull { it.time.isAfter(today.toLocalTime()) }
-    val tomorrowFajr = remember(cityName, method, today.toLocalDate()) {
+    val tomorrowFajr = remember(cityName, method, prayerOffset, today.toLocalDate()) {
         PrayerTimes.calculate(today.toLocalDate().plusDays(1), city, angles.first, angles.second).firstOrNull()?.let { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
     }
     val nextPrayer = upcoming ?: tomorrowFajr
@@ -166,7 +167,10 @@ fun MuslimAssistant() {
                                 }
                             }
                             Text("التنبيهات إشعارات فقط حاليًا، وليست أذانًا صوتيًا كاملًا.", color = Color.Gray)
-                            OutlinedButton(onClick = { PrayerAlerts.notifyPrayer(context) }) { Text("تجربة إشعار الصلاة الآن") }
+                            OutlinedButton(onClick = {
+                                testFeedback = if (PrayerAlerts.testNotification(context)) "تم إرسال إشعار تجريبي؛ تحقق من لوحة الإشعارات." else "اسمح بالإشعارات من إعدادات أندرويد أولًا."
+                            }) { Text("تجربة إشعار الصلاة الآن") }
+                            if (testFeedback.isNotEmpty()) Text(testFeedback, color = emerald)
                             Text("اختيار صوت المؤذن (محفوظ للتحديث الصوتي القادم)")
                             listOf("makkah" to "مؤذن الحرم المكي", "madinah" to "مؤذن المسجد النبوي", "other" to "صوت آخر").forEach { (id, label) ->
                                 Row {
