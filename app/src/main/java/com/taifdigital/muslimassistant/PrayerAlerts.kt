@@ -35,7 +35,7 @@ object PrayerAlerts {
         context.getSharedPreferences("prayer_schedule", 0).edit().clear().apply()
         val prefs = context.getSharedPreferences("preferences", 0)
         if (!prefs.getBoolean("prayer_alerts", false)) return
-        val city = PrayerTimes.cities.firstOrNull { it.name == prefs.getString("prayer_city", "دمشق") } ?: PrayerTimes.cities.first()
+        val city = PrayerTimes.cities.firstOrNull { it.name == prefs.getString("prayer_city", "مكة المكرمة") } ?: PrayerTimes.cities.first()
         val zone = ZoneId.of(city.zone)
         val now = ZonedDateTime.now(zone)
         val angles = if (prefs.getString("prayer_method", "MWL") == "EGYPT") 19.5 to 17.5 else 18.0 to 17.0
@@ -75,7 +75,7 @@ object PrayerAlerts {
         val scheduledTime = schedule.getLong(KEY_TIME, 0L)
         // Ignore stale broadcasts after clock, location or calculation changes.
         if (kotlin.math.abs(System.currentTimeMillis() - scheduledTime) > 45L * 60L * 1000L) return
-        val cityName = prefs.getString("prayer_city", "دمشق") ?: "دمشق"
+        val cityName = prefs.getString("prayer_city", "مكة المكرمة") ?: "مكة المكرمة"
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "تذكير الصلاة", NotificationManager.IMPORTANCE_DEFAULT))
         if (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
