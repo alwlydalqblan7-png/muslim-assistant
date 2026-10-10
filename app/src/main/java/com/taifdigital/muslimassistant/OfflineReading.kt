@@ -65,7 +65,11 @@ fun DailyDhikrCards() {
     }
     fun save(index: Int, value: Int) {
         counts = counts.toMutableList().also { it[index] = value }
-        prefs.edit().putString("day", today).putInt("count_$index", value).apply()
+        val editor = prefs.edit()
+        if (prefs.getString("day", "") != today) {
+            entries.indices.forEach { editor.remove("count_$it") }
+        }
+        editor.putString("day", today).putInt("count_$index", value).apply()
     }
     Text("عداد الأذكار اليومي — يُصفّر تلقائيًا في اليوم التالي")
     entries.forEachIndexed { index, dhikr ->
