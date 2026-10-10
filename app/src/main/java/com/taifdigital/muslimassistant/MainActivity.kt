@@ -60,9 +60,16 @@ fun MuslimAssistant() {
         }
         pendingPermission = ""
     }
-    LaunchedEffect(Unit) {
-        PrayerAlerts.schedule(context)
-        DhikrAlerts.schedule(context)
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                PrayerAlerts.schedule(context)
+                DhikrAlerts.schedule(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     var sound by remember { mutableStateOf(prefs.getBoolean("sound", true)) }
     var quiet by remember { mutableStateOf(prefs.getBoolean("quiet", true)) }
@@ -80,21 +87,12 @@ fun MuslimAssistant() {
         }
     }
     val today = remember(cityName, clockTick) { ZonedDateTime.now(ZoneId.of(city.zone)) }
-    val angles = if (method == "EGYPT") 19.5 to 17.5 else 18.0 to 17.0
     val prayers = remember(cityName, method, prayerOffset, today.toLocalDate()) {
-        PrayerTimes.calculate(today.toLocalDate(), city, angles.first, angles.second).map { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
+        PrayerTimes.timeline(today.toLocalDate(), city, method, prayerOffset).map { PrayerMoment(it.name, it.at.toLocalTime()) }
     }
-    val upcoming = prayers.map { prayer ->
-        prayer to today.toLocalDate().atTime(prayer.time).atZone(ZoneId.of(city.zone)).toInstant()
-    }.filter { it.second.isAfter(today.toInstant()) }.minByOrNull { it.second }
-    val tomorrowFajr = remember(cityName, method, prayerOffset, today.toLocalDate()) {
-        PrayerTimes.calculate(today.toLocalDate().plusDays(1), city, angles.first, angles.second)
-            .firstOrNull()?.let { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
-    }
-    val nextPrayer = upcoming?.first ?: tomorrowFajr
-    val nextInstant = upcoming?.second ?: tomorrowFajr?.let {
-        today.toLocalDate().plusDays(1).atTime(it.time).atZone(ZoneId.of(city.zone)).toInstant()
-    }
+    val nextEvent = PrayerTimes.next(today, city, method, prayerOffset)
+    val nextPrayer = nextEvent?.let { PrayerMoment(it.name, it.at.toLocalTime()) }
+    val nextInstant = nextEvent?.at?.toInstant()
     val remaining = nextInstant?.let { Duration.between(today.toInstant(), it).coerceAtLeast(Duration.ZERO) }
     val countdown = remaining?.let { "%02d:%02d:%02d".format(it.toHours(), it.toMinutes() % 60, it.seconds % 60) } ?: "—"
     val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
@@ -155,8 +153,9 @@ fun MuslimAssistant() {
                         }
                         "المؤذن" -> {
                             Text("المؤذن الذكي", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                            SettingSwitch("تفضيل الأذان الصوتي (غير مفعّل بعد)", adhan) {
+                            SettingSwitch("تشغيل الأذان الصوتي عند الصلاة", adhan) {
                                 adhan = it; prefs.edit().putBoolean("adhan", it).apply()
+                                if (!it) context.stopService(android.content.Intent(context, AdhanService::class.java))
                             }
                             SettingSwitch("تنبيهات الصلاة (قد تتأخر بسبب توفير البطارية)", prayerAlerts) { enabled ->
                                 if (enabled && Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -168,22 +167,34 @@ fun MuslimAssistant() {
                                     PrayerAlerts.schedule(context)
                                 }
                             }
-                            Text("التنبيهات إشعارات فقط حاليًا، وليست أذانًا صوتيًا كاملًا.", color = Color.Gray)
+                            Text("للأذان التلقائي: فعّل التنبيهات والصوت، اختر التسجيل المرخّص، واسمح بالمنبهات الدقيقة. دون الإذن يصلك إشعار تقريبي فقط.", color = Color.Gray)
+                            OutlinedButton(onClick = {
+                                if (Build.VERSION.SDK_INT >= 31) {
+                                    try { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, android.net.Uri.parse("package:${context.packageName}"))) }
+                                    catch (_: android.content.ActivityNotFoundException) { testFeedback = "إعداد المنبهات الدقيقة غير متاح على هذا الجهاز." }
+                                } else testFeedback = "لا يحتاج هذا الإصدار إذن المنبهات الدقيقة."
+                            }) { Text("السماح بالمنبهات الدقيقة") }
                             OutlinedButton(onClick = {
                                 testFeedback = if (PrayerAlerts.testNotification(context)) "تم إرسال إشعار تجريبي؛ تحقق من لوحة الإشعارات." else "اسمح بالإشعارات من إعدادات أندرويد أولًا."
                             }) { Text("تجربة إشعار الصلاة الآن") }
                             if (testFeedback.isNotEmpty()) Text(testFeedback, color = emerald)
-                            Text("اختيار صوت المؤذن (محفوظ للتحديث الصوتي القادم)")
-                            listOf("makkah" to "مؤذن الحرم المكي", "madinah" to "مؤذن المسجد النبوي", "other" to "صوت آخر").forEach { (id, label) ->
+                            Text("اختيار صوت المؤذن")
+                            listOf("makkah" to "الحرم المكي — غير متاح دون تسجيل مرخّص", "madinah" to "المسجد النبوي — غير متاح دون تسجيل مرخّص", "other" to "صوت آخر — غير متاح", AdhanService.VOICE to "تسجيل أذان مرخّص — Andrewler").forEach { (id, label) ->
                                 Row {
-                                    RadioButton(selected = voice == id, onClick = {
+                                    RadioButton(selected = voice == id, enabled = id == AdhanService.VOICE, onClick = {
                                         voice = id; prefs.edit().putString("voice", id).apply()
                                     })
                                     Text(label, modifier = Modifier.padding(top = 12.dp))
                                 }
                             }
                             Text("الفجر • الظهر • العصر • المغرب • العشاء")
-                            Text("تنبيهات الصلاة إشعارات محلية تجريبية. الأذان الصوتي الكامل غير متاح بعد.", color = Color.Gray)
+                            if (voice != AdhanService.VOICE) Text("اختيارك السابق محفوظ؛ اختر التسجيل المرخّص لتفعيل الصوت. لا ننسبه لمؤذني الحرمين.")
+                            OutlinedButton(onClick = {
+                                testFeedback = if (voice != AdhanService.VOICE) "اختر التسجيل المرخّص أولًا."
+                                else if (AdhanService.start(context, "تجربة الأذان")) "بدأ طلب تشغيل الصوت؛ تأكد من مستوى صوت المنبه." else "تعذّر بدء تشغيل الصوت."
+                            }) { Text("تجربة الأذان الآن") }
+                            TextButton(onClick = { context.stopService(android.content.Intent(context, AdhanService::class.java)) }) { Text("إيقاف الأذان") }
+                            Text("التسجيل: Azan.ogg — Andrewler، CC BY-SA 4.0، دون تعديل. تسجيل عام وليس أذان فجر مخصصًا. لا يتجاوز التطبيق وضع عدم الإزعاج أو مستوى صوت المنبه.", color = Color.Gray)
                         }
                         "الأذكار" -> {
                             Text("الأذكار اليومية", fontSize = 23.sp, fontWeight = FontWeight.Bold)
@@ -197,7 +208,7 @@ fun MuslimAssistant() {
                                     DhikrAlerts.schedule(context)
                                 }
                             }
-                            SettingSwitch("صوت الذكر", sound) {
+                            SettingSwitch("صوت إشعار الذكر", sound) {
                                 sound = it; prefs.edit().putBoolean("sound", it).apply()
                             }
                             SettingSwitch("الهدوء أثناء النوم", quiet) {
@@ -251,8 +262,9 @@ fun MuslimAssistant() {
                                     PrayerAlerts.schedule(context)
                                 }) { Text("تصفير") }
                             }
-                            Text("المواقيت تقديرية وتحتاج المقارنة بتقويم مسجدك المحلي. تنبيهات الصلاة والأذكار متاحة بصورة تجريبية عند تفعيلها؛ الأذان الصوتي لم يُفعّل بعد.", color = Color.Gray)
+                            Text("المواقيت حسابية تقريبية وليست تقويم مسجد رسميًا. العصر بمعامل ظل 1. راجعها مع مسجدك واضبط التصحيح؛ المدينة المختارة قد تختلف عن موقع الهاتف.", color = Color.Gray)
                             Text("الإعدادات الحالية محفوظة محليًا على هذا الجهاز.")
+                            SourceCredits()
                         }
                     }
                 }

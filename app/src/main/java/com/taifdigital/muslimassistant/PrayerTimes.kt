@@ -8,7 +8,21 @@ import kotlin.math.*
 data class PrayerCity(val name: String, val latitude: Double, val longitude: Double, val zone: String)
 data class PrayerMoment(val name: String, val time: LocalTime)
 
+data class PrayerEvent(val name: String, val at: java.time.ZonedDateTime)
+
 object PrayerTimes {
+    fun timeline(date: LocalDate, city: PrayerCity, method: String, correction: Int): List<PrayerEvent> {
+        val angles = if (method == "EGYPT") 19.5 to 17.5 else 18.0 to 17.0
+        return calculate(date, city, angles.first, angles.second).map {
+            PrayerEvent(it.name, date.atTime(it.time).atZone(ZoneId.of(city.zone)).plusMinutes(correction.coerceIn(-30, 30).toLong()))
+        }.sortedBy { it.at.toInstant() }
+    }
+    fun next(now: java.time.ZonedDateTime, city: PrayerCity, method: String, correction: Int): PrayerEvent? {
+        val date = now.withZoneSameInstant(ZoneId.of(city.zone)).toLocalDate()
+        return (-1L..2L).flatMap { timeline(date.plusDays(it), city, method, correction) }
+            .filter { it.at.toInstant() > now.toInstant() }.minByOrNull { it.at.toInstant() }
+    }
+
     val cities = listOf(
         PrayerCity("مكة المكرمة", 21.4225, 39.8262, "Asia/Riyadh"),
         PrayerCity("دمشق", 33.5138, 36.2765, "Asia/Damascus"),

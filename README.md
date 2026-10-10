@@ -1,7 +1,26 @@
-# مساعد المسلم
+# مساعد المسلم — Taif Digital
 
-Taif Digital native Android application. Phase 1 starter in Kotlin and Jetpack Compose.
+تطبيق Android أصلي بـ Kotlin وJetpack Compose. الإصدار 0.2.0 مرشح اختبار موحّد، ولا يُعد جاهزًا للترقية على جهاز قائم قبل مطابقة التوقيع واختبار الجهاز.
 
-Planned: full adhan with user-selectable voices, hourly dhikr with audio and sleep quiet mode.
+- مصحف كامل دون إنترنت: 114 سورة و6236 آية من نص Tanzil العثماني 1.1، مع الفهرس وحفظ موضع القراءة وحجم الخط.
+- مواقيت تقريبية للمدن الست الحالية، بطريقتي MWL ومصر وتصحيح الدقائق المحفوظ.
+- تنبيهات الصلاة وإعادة الجدولة بعد إعادة التشغيل؛ الأذان الصوتي المرخّص يتطلب اختياره ومنح أذونات التنبيهات والمنبهات الدقيقة.
+- أذكار دورية، ساعات هدوء، وعدادات يومية محفوظة.
+- الأيقونة الرسمية والإعدادات السابقة محفوظة. أصوات الحرمين والتلاوة الصوتية والأذكار المنطوقة غير متاحة؛ لا تُستبدل الخيارات السابقة بصوت مختلف تلقائيًا.
 
-This repository is in early development. No actual prayer notifications are implemented yet.
+## البناء والتحقق
+
+Java 17، Gradle 8.9، Android SDK 35:
+
+```sh
+python3 scripts/validate_assets.py
+gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+```
+
+GitHub Actions ينفذ الفحوص نفسها ويرفع APK موحّدًا. نجاح البناء لا يعوّض اختبار التنبيهات والصوت والقراءة على الجهاز.
+
+## المصادر والتوقيع
+
+[تفاصيل المراجعة والتراخيص وحدود الاختبار](docs/0.2.0-review.md).
+
+لترقية النسخة المثبتة دون فقد البيانات، يجب استخدام مفتاح توقيعها الأصلي. يدعم سير العمل الأسرار `MUSLIM_SIGNING_STORE_BASE64` و`MUSLIM_SIGNING_STORE_PASSWORD` و`MUSLIM_SIGNING_ALIAS` و`MUSLIM_SIGNING_KEY_PASSWORD`. دونها يُستخدم مفتاح debug مؤقت، ولا يُضمن توافق الترقية. لا تُرفع المفاتيح أو كلمات المرور إلى المستودع، ولا تُحذف النسخة الحالية لمعالجة التعارض.

@@ -16,7 +16,7 @@ import java.time.ZonedDateTime
 import java.time.ZoneId
 
 /**
- * Inexact, battery-friendly prayer notifications. No full adhan audio yet.
+ * Exact when the user grants access; notification-only fallback otherwise.
  * AlarmManager may delay delivery during Doze; never promise exact timing.
  */
 object PrayerAlerts {
@@ -38,19 +38,19 @@ object PrayerAlerts {
         val city = PrayerTimes.cities.firstOrNull { it.name == prefs.getString("prayer_city", "مكة المكرمة") } ?: PrayerTimes.cities.first()
         val zone = ZoneId.of(city.zone)
         val now = ZonedDateTime.now(zone)
-        val angles = if (prefs.getString("prayer_method", "MWL") == "EGYPT") 19.5 to 17.5 else 18.0 to 17.0
-        val correctionMinutes = prefs.getInt("prayer_offset_minutes", 0).coerceIn(-30, 30)
-        val next = (0L..2L).asSequence().flatMap { day ->
-            val date = now.toLocalDate().plusDays(day)
-            PrayerTimes.calculate(date, city, angles.first, angles.second).asSequence().map { prayer ->
-                prayer.name to date.atTime(prayer.time).atZone(zone).toInstant().plusSeconds(correctionMinutes * 60L).toEpochMilli()
-            }
-        }.filter { it.second > System.currentTimeMillis() + 1000L }
-            .minByOrNull { it.second } ?: return
+        val method = prefs.getString("prayer_method", "MWL") ?: "MWL"
+        val correction = prefs.getInt("prayer_offset_minutes", 0)
+        val event = PrayerTimes.next(now.plusSeconds(1), city, method, correction) ?: return
+        val next = event.name to event.at.toInstant().toEpochMilli()
         context.getSharedPreferences("prayer_schedule", 0).edit()
             .putString(KEY_NAME, next.first).putLong(KEY_TIME, next.second).apply()
-        // No exact-alarm permission: may arrive late under battery restrictions.
-        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.second, intent(context))
+        val exact = Build.VERSION.SDK_INT < 31 || alarm.canScheduleExactAlarms()
+        try {
+            if (exact) alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.second, intent(context))
+            else alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.second, intent(context))
+        } catch (_: SecurityException) {
+            alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.second, intent(context))
+        }
     }
     /** A separate test notification that does not depend on a future scheduled prayer. */
     fun testNotification(context: Context): Boolean {
@@ -74,7 +74,9 @@ object PrayerAlerts {
         val prayerName = schedule.getString(KEY_NAME, null) ?: return
         val scheduledTime = schedule.getLong(KEY_TIME, 0L)
         // Ignore stale broadcasts after clock, location or calculation changes.
-        if (kotlin.math.abs(System.currentTimeMillis() - scheduledTime) > 45L * 60L * 1000L) return
+        val lateness = System.currentTimeMillis() - scheduledTime
+        if (lateness < -1000L || lateness > 15L * 60L * 1000L) return
+        schedule.edit().remove(KEY_TIME).remove(KEY_NAME).apply()
         val cityName = prefs.getString("prayer_city", "مكة المكرمة") ?: "مكة المكرمة"
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "تذكير الصلاة", NotificationManager.IMPORTANCE_DEFAULT))
@@ -85,6 +87,12 @@ object PrayerAlerts {
                 .setContentText("موعد صلاة $prayerName — $cityName (توقيت تقريبي)")
                 .setAutoCancel(true).build()
             manager.notify(REQUEST, notification)
+            val alarm = context.getSystemService(AlarmManager::class.java)
+            val exact = Build.VERSION.SDK_INT < 31 || alarm.canScheduleExactAlarms()
+            if (exact && lateness <= 2 * 60_000L && prefs.getBoolean("adhan", true) &&
+                prefs.getString("voice", "makkah") == AdhanService.VOICE && manager.areNotificationsEnabled()) {
+                AdhanService.start(context, "أذان $prayerName — $cityName")
+            }
         }
     }
 }
@@ -96,7 +104,7 @@ class PrayerAlertReceiver : BroadcastReceiver() {
 }
 class PrayerBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_TIMEZONE_CHANGED || intent.action == Intent.ACTION_TIME_CHANGED) {
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_TIMEZONE_CHANGED || intent.action == Intent.ACTION_TIME_CHANGED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED || intent.action == AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) {
             PrayerAlerts.schedule(context)
             DhikrAlerts.schedule(context)
         }

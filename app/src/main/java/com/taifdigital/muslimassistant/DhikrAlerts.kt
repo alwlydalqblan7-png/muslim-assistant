@@ -26,12 +26,22 @@ object DhikrAlerts {
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarm.cancel(pending(context))
         val prefs = context.getSharedPreferences("preferences", 0)
-        if (!prefs.getBoolean("dhikr", false)) return
-        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60L * 60L * 1000L, pending(context))
+        if (!prefs.getBoolean("dhikr", false)) {
+            prefs.edit().remove("next_dhikr_at").apply()
+            return
+        }
+        val now = System.currentTimeMillis()
+        val saved = prefs.getLong("next_dhikr_at", 0L)
+        val next = if (saved > now && saved <= now + 60L * 60L * 1000L) saved else now + 60L * 60L * 1000L
+        prefs.edit().putLong("next_dhikr_at", next).apply()
+        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending(context))
     }
     fun show(context: Context) {
         val prefs = context.getSharedPreferences("preferences", 0)
         if (!prefs.getBoolean("dhikr", false)) return
+        if (AdhanService.playing) return
+        val prayerAt = context.getSharedPreferences("prayer_schedule", 0).getLong("scheduled_prayer_time", 0)
+        if (kotlin.math.abs(System.currentTimeMillis() - prayerAt) < 5 * 60_000L) return
         val hour = ZonedDateTime.now(ZoneId.systemDefault()).hour
         if (prefs.getBoolean("quiet", true) && (hour >= 22 || hour < 7)) return
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
@@ -48,6 +58,7 @@ object DhikrAlerts {
 class DhikrReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         DhikrAlerts.show(context)
+        context.getSharedPreferences("preferences", 0).edit().remove("next_dhikr_at").apply()
         DhikrAlerts.schedule(context)
     }
 }

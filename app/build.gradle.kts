@@ -10,8 +10,19 @@ android {
         applicationId = "com.taifdigital.muslimassistant"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.2.0"
+    }
+    val suppliedKeystore = System.getenv("MUSLIM_SIGNING_STORE")
+    if (!suppliedKeystore.isNullOrBlank()) {
+        val existingKey = signingConfigs.create("existingKey") {
+            storeFile = file(suppliedKeystore)
+            storePassword = requireNotNull(System.getenv("MUSLIM_SIGNING_STORE_PASSWORD"))
+            keyAlias = requireNotNull(System.getenv("MUSLIM_SIGNING_ALIAS"))
+            keyPassword = requireNotNull(System.getenv("MUSLIM_SIGNING_KEY_PASSWORD"))
+        }
+        buildTypes.getByName("debug").signingConfig = existingKey
+        buildTypes.getByName("release").signingConfig = existingKey
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -21,6 +32,8 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.compose.ui:ui")
