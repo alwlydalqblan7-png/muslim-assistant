@@ -69,6 +69,7 @@ fun MuslimAssistant() {
 
     var cityName by remember { mutableStateOf(prefs.getString("prayer_city", "دمشق") ?: "دمشق") }
     var method by remember { mutableStateOf(prefs.getString("prayer_method", "MWL") ?: "MWL") }
+    var prayerOffset by remember { mutableIntStateOf(prefs.getInt("prayer_offset_minutes", 0).coerceIn(-30, 30)) }
     val city = PrayerTimes.cities.firstOrNull { it.name == cityName } ?: PrayerTimes.cities.first()
     var clockTick by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
@@ -79,12 +80,12 @@ fun MuslimAssistant() {
     }
     val today = remember(cityName, clockTick) { ZonedDateTime.now(ZoneId.of(city.zone)) }
     val angles = if (method == "EGYPT") 19.5 to 17.5 else 18.0 to 17.0
-    val prayers = remember(cityName, method, today.toLocalDate()) {
-        PrayerTimes.calculate(today.toLocalDate(), city, angles.first, angles.second)
+    val prayers = remember(cityName, method, prayerOffset, today.toLocalDate()) {
+        PrayerTimes.calculate(today.toLocalDate(), city, angles.first, angles.second).map { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
     }
     val upcoming = prayers.firstOrNull { it.time.isAfter(today.toLocalTime()) }
     val tomorrowFajr = remember(cityName, method, today.toLocalDate()) {
-        PrayerTimes.calculate(today.toLocalDate().plusDays(1), city, angles.first, angles.second).firstOrNull()
+        PrayerTimes.calculate(today.toLocalDate().plusDays(1), city, angles.first, angles.second).firstOrNull()?.let { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
     }
     val nextPrayer = upcoming ?: tomorrowFajr
     val nextInstant = nextPrayer?.let { prayer ->
@@ -225,6 +226,24 @@ fun MuslimAssistant() {
                                     })
                                     Text(title, modifier = Modifier.padding(top = 12.dp))
                                 }
+                            }
+                            Text("تصحيح مواقيت الصلاة: $prayerOffset دقيقة")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = {
+                                    prayerOffset = (prayerOffset - 1).coerceAtLeast(-30)
+                                    prefs.edit().putInt("prayer_offset_minutes", prayerOffset).apply()
+                                    PrayerAlerts.schedule(context)
+                                }) { Text("−1") }
+                                OutlinedButton(onClick = {
+                                    prayerOffset = (prayerOffset + 1).coerceAtMost(30)
+                                    prefs.edit().putInt("prayer_offset_minutes", prayerOffset).apply()
+                                    PrayerAlerts.schedule(context)
+                                }) { Text("+1") }
+                                TextButton(onClick = {
+                                    prayerOffset = 0
+                                    prefs.edit().putInt("prayer_offset_minutes", 0).apply()
+                                    PrayerAlerts.schedule(context)
+                                }) { Text("تصفير") }
                             }
                             Text("المواقيت تقديرية وتحتاج المقارنة بتقويم مسجدك المحلي. تنبيهات الصلاة والأذكار متاحة بصورة تجريبية عند تفعيلها؛ الأذان الصوتي لم يُفعّل بعد.", color = Color.Gray)
                             Text("الإعدادات الحالية محفوظة محليًا على هذا الجهاز.")
