@@ -10,8 +10,8 @@ data class PrayerMoment(val name: String, val time: LocalTime)
 
 object PrayerTimes {
     val cities = listOf(
-        PrayerCity("دمشق", 33.5138, 36.2765, "Asia/Damascus"),
         PrayerCity("مكة المكرمة", 21.4225, 39.8262, "Asia/Riyadh"),
+        PrayerCity("دمشق", 33.5138, 36.2765, "Asia/Damascus"),
         PrayerCity("المدينة المنورة", 24.4672, 39.6111, "Asia/Riyadh"),
         PrayerCity("الرياض", 24.7136, 46.6753, "Asia/Riyadh"),
         PrayerCity("القاهرة", 30.0444, 31.2357, "Africa/Cairo"),
