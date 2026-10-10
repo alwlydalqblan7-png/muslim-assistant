@@ -169,7 +169,7 @@ fun MuslimAssistant() {
                         }
                         "الأذكار" -> {
                             Text("الأذكار اليومية", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                            Text("أستغفر الله العظيم وأتوب إليه", fontSize = 20.sp)
+                            DailyDhikrCards()
                             SettingSwitch("التذكير كل 60 دقيقة", dhikr) {
                                 if (it && Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -188,7 +188,7 @@ fun MuslimAssistant() {
                         }
                         "القرآن" -> {
                             Text("القرآن الكريم", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                            Text("قراءة المصحف والاستماع والتنزيل: قيد التخطيط.")
+                            OfflineQuranReading()
                         }
                         else -> {
                             Text("الإعدادات", fontSize = 23.sp, fontWeight = FontWeight.Bold)
