@@ -1,11 +1,8 @@
 package com.taifdigital.muslimassistant
 
 import android.os.Bundle
-import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -59,7 +56,7 @@ fun MuslimAssistant() {
         }
     }
     val today = remember(cityName, clockTick) { ZonedDateTime.now(ZoneId.of(city.zone)) }
-    val angles = if (method == "EGYPT") 19.5 to 17.5 else if (method == "MAKKAH") 18.5 to 18.5 else 18.0 to 17.0
+    val angles = if (method == "EGYPT") 19.5 to 17.5 else 18.0 to 17.0
     val prayers = remember(cityName, method, today.toLocalDate()) {
         PrayerTimes.calculate(today.toLocalDate(), city, angles.first, angles.second)
     }
@@ -178,7 +175,7 @@ fun MuslimAssistant() {
                                 }
                             }
                             Text("طريقة حساب الفجر والعشاء", fontWeight = FontWeight.Bold)
-                            listOf("MWL" to "رابطة العالم الإسلامي (18° / 17°)", "EGYPT" to "الهيئة المصرية (19.5° / 17.5°)", "MAKKAH" to "زاويتان تجريبيتان (18.5° / 18.5°)").forEach { (id, title) ->
+                            listOf("MWL" to "رابطة العالم الإسلامي (18° / 17°)", "EGYPT" to "الهيئة المصرية (19.5° / 17.5°)").forEach { (id, title) ->
                                 Row {
                                     RadioButton(selected = method == id, onClick = {
                                         method = id
