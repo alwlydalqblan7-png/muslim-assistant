@@ -50,6 +50,7 @@ fun MuslimAssistant() {
             prayerAlerts = true
             prefs.edit().putBoolean("prayer_alerts", true).apply()
             PrayerAlerts.schedule(context)
+            DhikrAlerts.schedule(context)
         }
     }
     var dhikr by remember { mutableStateOf(prefs.getBoolean("dhikr", true)) }
@@ -170,7 +171,12 @@ fun MuslimAssistant() {
                             Text("الأذكار اليومية", fontSize = 23.sp, fontWeight = FontWeight.Bold)
                             Text("أستغفر الله العظيم وأتوب إليه", fontSize = 20.sp)
                             SettingSwitch("التذكير كل 60 دقيقة", dhikr) {
-                                dhikr = it; prefs.edit().putBoolean("dhikr", it).apply()
+                                if (it && Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    dhikr = it; prefs.edit().putBoolean("dhikr", it).apply()
+                                    DhikrAlerts.schedule(context)
+                                }
                             }
                             SettingSwitch("صوت الذكر", sound) {
                                 sound = it; prefs.edit().putBoolean("sound", it).apply()
@@ -178,7 +184,7 @@ fun MuslimAssistant() {
                             SettingSwitch("الهدوء أثناء النوم", quiet) {
                                 quiet = it; prefs.edit().putBoolean("quiet", it).apply()
                             }
-                            Text("الجدولة الفعلية والتنبيهات ستنفذ في المرحلة الثالثة.", color = Color.Gray)
+                            Text("التذكير الدوري يعمل بإشعارات تقريبية وقد يتأخر مع توفير البطارية. الهدوء من 10 مساءً إلى 7 صباحًا.", color = Color.Gray)
                         }
                         "القرآن" -> {
                             Text("القرآن الكريم", fontSize = 23.sp, fontWeight = FontWeight.Bold)
