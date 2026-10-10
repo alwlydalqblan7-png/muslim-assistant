@@ -84,14 +84,16 @@ fun MuslimAssistant() {
     val prayers = remember(cityName, method, prayerOffset, today.toLocalDate()) {
         PrayerTimes.calculate(today.toLocalDate(), city, angles.first, angles.second).map { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
     }
-    val upcoming = prayers.firstOrNull { it.time.isAfter(today.toLocalTime()) }
+    val upcoming = prayers.map { prayer ->
+        prayer to today.toLocalDate().atTime(prayer.time).atZone(ZoneId.of(city.zone)).toInstant()
+    }.filter { it.second.isAfter(today.toInstant()) }.minByOrNull { it.second }
     val tomorrowFajr = remember(cityName, method, prayerOffset, today.toLocalDate()) {
-        PrayerTimes.calculate(today.toLocalDate().plusDays(1), city, angles.first, angles.second).firstOrNull()?.let { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
+        PrayerTimes.calculate(today.toLocalDate().plusDays(1), city, angles.first, angles.second)
+            .firstOrNull()?.let { it.copy(time = it.time.plusMinutes(prayerOffset.toLong())) }
     }
-    val nextPrayer = upcoming ?: tomorrowFajr
-    val nextInstant = nextPrayer?.let { prayer ->
-        val date = if (upcoming != null) today.toLocalDate() else today.toLocalDate().plusDays(1)
-        date.atTime(prayer.time).atZone(ZoneId.of(city.zone)).toInstant()
+    val nextPrayer = upcoming?.first ?: tomorrowFajr
+    val nextInstant = upcoming?.second ?: tomorrowFajr?.let {
+        today.toLocalDate().plusDays(1).atTime(it.time).atZone(ZoneId.of(city.zone)).toInstant()
     }
     val remaining = nextInstant?.let { Duration.between(today.toInstant(), it).coerceAtLeast(Duration.ZERO) }
     val countdown = remaining?.let { "%02d:%02d:%02d".format(it.toHours(), it.toMinutes() % 60, it.seconds % 60) } ?: "—"
