@@ -88,19 +88,25 @@ fun OfflineQuranReading() {
     }
     Text("الآيات ${first + 1}–${minOf(first + 12, surah.verses.size)} من ${surah.verses.size} — يُحفظ هذا الموضع تلقائيًا")
     if (first == 0) surah.bismillah?.let { Text(it, fontSize = fontSize.sp, lineHeight = (fontSize * 1.8).sp) }
-    surah.verses.drop(first).take(12).forEachIndexed { offset, verse ->
-        ElevatedCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text(verse, fontSize = fontSize.sp, lineHeight = (fontSize * 1.8).sp)
-                Text("﴿${first + offset + 1}﴾")
-            }
+    // Continuous reading surface: keep verified Tanzil verse text unchanged.
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(surah.name, style = MaterialTheme.typography.titleLarge)
+            Text(
+                surah.verses.drop(first).take(12).mapIndexed { offset, verse ->
+                    "$verse ﴿${first + offset + 1}﴾"
+                }.joinToString("  "),
+                fontSize = fontSize.sp,
+                lineHeight = (fontSize * 1.9).sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Justify
+            )
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { if (first > 0) position(selected, (first - 12).coerceAtLeast(0)) else position(selected - 1) }, enabled = first > 0 || selected > 1) { Text("السابق") }
         Button(onClick = { if (first + 12 < surah.verses.size) position(selected, first + 12) else position(selected + 1) }, enabled = first + 12 < surah.verses.size || selected < 114) { Text("التالي") }
     }
-    Text("نص عثماني من مشروع تنزيل Tanzil، الإصدار 1.1. النص محفوظ دون تغيير. العرض بالآيات وليس صفحات طبعة ورقية. الاستماع غير متاح في هذا الإصدار.")
+    Text("نص عثماني من مشروع تنزيل Tanzil، الإصدار 1.1. النص محفوظ دون تغيير. العرض متصل بمقاطع قراءة، ولم يُعتمد تقسيم صفحات مصحف المدينة بعد. الاستماع غير متاح في هذا الإصدار.")
     TextButton(onClick = { uri.openUri("https://tanzil.net") }) { Text("المصدر: Tanzil.net") }
     if (picker) AlertDialog(onDismissRequest = { picker = false }, confirmButton = { TextButton(onClick = { picker = false }) { Text("إغلاق") } }, title = { Text("فهرس السور") }, text = {
         Column {
