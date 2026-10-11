@@ -56,66 +56,140 @@ object QuranRepository {
     }
 }
 
+data class MushafPageStart(val surah: Int, val verse: Int)
+
+object MushafPages {
+    @Volatile private var cache: List<MushafPageStart>? = null
+    @Synchronized fun read(context: Context): List<MushafPageStart> {
+        cache?.let { return it }
+        val result = mutableListOf<MushafPageStart>()
+        context.assets.open("quran-metadata.xml").use { input ->
+            val parser = Xml.newPullParser()
+            parser.setInput(input, "UTF-8")
+            var inPages = false
+            while (parser.eventType != XmlPullParser.END_DOCUMENT) {
+                if (parser.eventType == XmlPullParser.START_TAG) {
+                    if (parser.name == "pages") inPages = true
+                    if (inPages && parser.name == "page") {
+                        check(parser.getAttributeValue(null, "index").toInt() == result.size + 1)
+                        result.add(MushafPageStart(
+                            parser.getAttributeValue(null, "sura").toInt(),
+                            parser.getAttributeValue(null, "aya").toInt()
+                        ))
+                    }
+                } else if (parser.eventType == XmlPullParser.END_TAG && parser.name == "pages") {
+                    inPages = false
+                }
+                parser.next()
+            }
+        }
+        check(result.size == 604)
+        check(result.first() == MushafPageStart(1, 1))
+        check(result.last() == MushafPageStart(112, 1))
+        return result.toList().also { cache = it }
+    }
+}
+
 @Composable
 fun OfflineQuranReading() {
     val context = LocalContext.current
     val uri = LocalUriHandler.current
-    val prefs = remember { context.getSharedPreferences("quran_reader", 0) }
-    var selected by remember { mutableIntStateOf(prefs.getInt("surah_number", if (prefs.contains("last_surah")) 112 + prefs.getInt("last_surah", 0).coerceIn(0, 2) else 1).coerceIn(1, 114)) }
-    var start by remember { mutableIntStateOf(prefs.getInt("verse_start", 0).coerceAtLeast(0)) }
+    val prefs = remember(context) { context.getSharedPreferences("quran_reader", 0) }
     var fontSize by remember { mutableIntStateOf(prefs.getInt("font_size", 21).coerceIn(18, 32)) }
     var data by remember { mutableStateOf<List<QuranSurah>>(emptyList()) }
+    var pages by remember { mutableStateOf<List<MushafPageStart>>(emptyList()) }
     var error by remember { mutableStateOf(false) }
     var picker by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var page by remember {
+        mutableIntStateOf(prefs.getInt("mushaf_page", 1).coerceIn(1, 604))
+    }
     LaunchedEffect(Unit) {
-        val result = withContext(Dispatchers.IO) { runCatching { QuranRepository.read(context) } }
-        result.onSuccess { data = it }.onFailure { error = true }
+        val result = withContext(Dispatchers.IO) {
+            runCatching { QuranRepository.read(context) to MushafPages.read(context) }
+        }
+        result.onSuccess { (surahs, starts) -> data = surahs; pages = starts }
+            .onFailure { error = true }
     }
-    if (error) { Text("تعذّر فتح نص المصحف المحلي. أعد فتح التطبيق؛ لا يتم عرض نص بديل."); return }
-    if (data.isEmpty()) { Text("جارٍ فتح المصحف المحلي…"); return }
-    val surah = data[selected - 1]
-    val first = start.coerceIn(0, surah.verses.lastIndex)
-    fun position(number: Int, verse: Int = 0) {
-        selected = number; start = verse
-        prefs.edit().putInt("surah_number", number).putInt("verse_start", verse).apply()
+    if (error) {
+        Text("تعذّر فتح بيانات المصحف المحلية. لا يُعرض نص بديل.")
+        return
     }
-    Text("المصحف كاملًا: 114 سورة — قراءة دون إنترنت")
-    Button(onClick = { picker = true }) { Text("اختيار سورة: ${surah.number}. ${surah.name}") }
+    if (data.isEmpty() || pages.isEmpty()) {
+        Text("جارٍ فتح صفحات المصحف…")
+        return
+    }
+    fun goToPage(number: Int) {
+        page = number.coerceIn(1, 604)
+        prefs.edit().putInt("mushaf_page", page).apply()
+    }
+    fun pageFor(surah: Int, verse: Int): Int {
+        val index = pages.indexOfLast { it.surah < surah || (it.surah == surah && it.verse <= verse) }
+        return (index + 1).coerceIn(1, 604)
+    }
+    val start = pages[page - 1]
+    val end = pages.getOrNull(page)
+    val verses = buildList {
+        for (surah in data) {
+            if (surah.number < start.surah) continue
+            if (end != null && surah.number > end.surah) break
+            for ((index, verse) in surah.verses.withIndex()) {
+                val verseNumber = index + 1
+                if (surah.number == start.surah && verseNumber < start.verse) continue
+                if (end != null && surah.number == end.surah && verseNumber >= end.verse) break
+                add(Triple(surah, verseNumber, verse))
+            }
+        }
+    }
+    Text("المصحف الشريف — 604 صفحات دون إنترنت", style = MaterialTheme.typography.titleLarge)
+    Text("الصفحة $page من 604")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { fontSize = (fontSize - 2).coerceAtLeast(18); prefs.edit().putInt("font_size", fontSize).apply() }, enabled = fontSize > 18) { Text("تصغير") }
         OutlinedButton(onClick = { fontSize = (fontSize + 2).coerceAtMost(32); prefs.edit().putInt("font_size", fontSize).apply() }, enabled = fontSize < 32) { Text("تكبير") }
+        TextButton(onClick = { picker = true }) { Text("فهرس السور") }
     }
-    Text("الآيات ${first + 1}–${minOf(first + 12, surah.verses.size)} من ${surah.verses.size} — يُحفظ هذا الموضع تلقائيًا")
-    if (first == 0) surah.bismillah?.let { Text(it, fontSize = fontSize.sp, lineHeight = (fontSize * 1.8).sp) }
-    // Continuous reading surface: keep verified Tanzil verse text unchanged.
     ElevatedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(surah.name, style = MaterialTheme.typography.titleLarge)
-            Text(
-                surah.verses.drop(first).take(12).mapIndexed { offset, verse ->
-                    "$verse ﴿${first + offset + 1}﴾"
-                }.joinToString("  "),
-                fontSize = fontSize.sp,
-                lineHeight = (fontSize * 1.9).sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Justify
-            )
+            var previousSurah = 0
+            verses.forEach { (surah, number, verse) ->
+                if (previousSurah != surah.number) {
+                    Text("سورة ${surah.name}", style = MaterialTheme.typography.titleMedium)
+                    if (number == 1) surah.bismillah?.let {
+                        Text(it, fontSize = fontSize.sp, lineHeight = (fontSize * 1.8).sp)
+                    }
+                    previousSurah = surah.number
+                }
+                Text("$verse ﴿$number﴾",
+                    fontSize = fontSize.sp,
+                    lineHeight = (fontSize * 1.9).sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Justify)
+            }
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { if (first > 0) position(selected, (first - 12).coerceAtLeast(0)) else position(selected - 1) }, enabled = first > 0 || selected > 1) { Text("السابق") }
-        Button(onClick = { if (first + 12 < surah.verses.size) position(selected, first + 12) else position(selected + 1) }, enabled = first + 12 < surah.verses.size || selected < 114) { Text("التالي") }
+        OutlinedButton(onClick = { goToPage(page - 1) }, enabled = page > 1) { Text("الصفحة السابقة") }
+        Button(onClick = { goToPage(page + 1) }, enabled = page < 604) { Text("الصفحة التالية") }
     }
-    Text("نص عثماني من مشروع تنزيل Tanzil، الإصدار 1.1. النص محفوظ دون تغيير. العرض متصل بمقاطع قراءة، ولم يُعتمد تقسيم صفحات مصحف المدينة بعد. الاستماع غير متاح في هذا الإصدار.")
+    Text("توزيع الآيات حسب بيانات صفحات Tanzil. يتغير ارتفاع العرض حسب حجم الخط؛ لا يحاكي سطور الطبعة الورقية حرفيًا.")
     TextButton(onClick = { uri.openUri("https://tanzil.net") }) { Text("المصدر: Tanzil.net") }
-    if (picker) AlertDialog(onDismissRequest = { picker = false }, confirmButton = { TextButton(onClick = { picker = false }) { Text("إغلاق") } }, title = { Text("فهرس السور") }, text = {
-        Column {
-            OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("اسم السورة أو رقمها") })
-            LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                items(data.filter { query.isBlank() || it.name.contains(query.trim()) || it.number.toString() == query.trim() }, key = { it.number }) { item ->
-                    TextButton(onClick = { position(item.number); picker = false }) { Text("${item.number}. ${item.name} — ${item.verses.size} آية") }
+    if (picker) AlertDialog(
+        onDismissRequest = { picker = false },
+        confirmButton = { TextButton(onClick = { picker = false }) { Text("إغلاق") } },
+        title = { Text("فهرس السور") },
+        text = {
+            Column {
+                OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("اسم السورة أو رقمها") })
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(data.filter {
+                        query.isBlank() || it.name.contains(query.trim()) || it.number.toString() == query.trim()
+                    }, key = { it.number }) { surah ->
+                        TextButton(onClick = {
+                            goToPage(pageFor(surah.number, 1))
+                            picker = false
+                        }) { Text("${surah.number}. ${surah.name}") }
+                    }
                 }
             }
         }
-    })
+    )
 }
