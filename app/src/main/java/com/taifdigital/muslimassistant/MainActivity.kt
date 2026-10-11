@@ -109,11 +109,11 @@ fun MuslimAssistant() {
                 },
                 bottomBar = {
                     NavigationBar(containerColor = cream) {
-                        listOf("الرئيسية", "المؤذن", "الأذكار", "القرآن", "الإعدادات").forEach { label ->
+                        listOf("الرئيسية", "روتيني", "المؤذن", "القرآن", "الإعدادات").forEach { label ->
                             NavigationBarItem(
                                 selected = page == label,
                                 onClick = { page = label },
-                                icon = { Text(when (label) { "الرئيسية" -> "⌂"; "المؤذن" -> "◷"; "الأذكار" -> "♡"; "القرآن" -> "▤"; else -> "⚙" }, fontSize = 22.sp, color = if (page == label) emerald else deepGreen) },
+                                icon = { Text(when (label) { "الرئيسية" -> "⌂"; "المؤذن" -> "◷"; "روتيني" -> "♡"; "القرآن" -> "▤"; else -> "⚙" }, fontSize = 22.sp, color = if (page == label) emerald else deepGreen) },
                                 label = { Text(label) }
                             )
                         }
@@ -142,7 +142,7 @@ fun MuslimAssistant() {
                                     Text("الفجر   •   الظهر   •   العصر   •   المغرب   •   العشاء", color = Color.White, fontSize = 12.sp)
                                 }
                             }
-                            listOf("المؤذن" to "◷  المؤذن الذكي", "الأذكار" to "♡  الأذكار اليومية", "القرآن" to "▤  القرآن الكريم", "الإعدادات" to "⚙  الإعدادات").forEach { (destination, label) ->
+                            listOf("روتيني" to "♡  روتيني الإيماني", "المؤذن" to "◷  المؤذن الذكي", "الأذكار" to "♡  الأذكار اليومية", "القرآن" to "▤  القرآن الكريم", "الإعدادات" to "⚙  الإعدادات").forEach { (destination, label) ->
                                 ElevatedCard(onClick = { page = destination }, modifier = Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(containerColor = Color.White)) {
                                     Text(label, modifier = Modifier.padding(20.dp), color = emerald, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                                 }
@@ -151,6 +151,7 @@ fun MuslimAssistant() {
                                 Text("✦  سبحان الله وبحمده، سبحان الله العظيم", modifier = Modifier.fillMaxWidth().padding(18.dp), color = emerald)
                             }
                         }
+                        "روتيني" -> { DailyWorshipRoutine() }
                         "المؤذن" -> {
                             Text("المؤذن الذكي", fontSize = 23.sp, fontWeight = FontWeight.Bold)
                             SettingSwitch("تشغيل الأذان الصوتي عند الصلاة", adhan) {
